@@ -37,3 +37,11 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+.DS_Store
+DC4-data/BOM Network Description.doc
+*.csv
+*.txt
+*.xlsx
+*.04062012
+*.04072012
+*.04072012(1)
