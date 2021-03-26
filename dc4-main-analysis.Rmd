@@ -160,7 +160,7 @@ frequency_plot <- ggplot(frequency, aes(x = proportion, y = `Jane Austen`,
 ```
 
 ```{r eval=FALSE}
-# ggplotly(frequency_plot)
+# ggplotly(frequency_plot) # comment out when knitting
 ```
 
 # Firewall 
