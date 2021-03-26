@@ -2,7 +2,14 @@
 title: "Data Challenge 4"
 author: "Nage Ngo, Carol Milton, Esa Schenck"
 date: "3/24/2021"
-output: html_document
+output:   
+  html_document:
+    toc: true
+    toc_depth: 3
+    theme: cosmo
+    highlight: tango
+    toc_float: true
+    code_folding: hide
 ---
 
 #Working with tidytext
@@ -10,8 +17,11 @@ output: html_document
 ```{r}
 library(tidyverse)
 library(tidytext)
+library(plotly)
 ```
+
 All of this is coming from https://www.tidytextmining.com/tidytext.html
+
 ```{r}
 #The basics of converting text to tidy format
 
@@ -150,8 +160,14 @@ frequency_plot <- ggplot(frequency, aes(x = proportion, y = `Jane Austen`,
 ```
 
 ```{r eval=FALSE}
-library(plotly)
+# ggplotly(frequency_plot)
+```
 
-ggplotly(frequency_plot)
+# Firewall 
+
+*I have moved the file DC4-data into DC4, and then ignore it. Please do the same so the paths are similar.*
+
+```{r}
+Firewall_04072012 <- readr::read_csv("DC4-data/Firewall/Firewall-04072012.csv")
 ```
 
