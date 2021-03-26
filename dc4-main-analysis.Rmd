@@ -14,7 +14,8 @@ output:
 
 #Working with tidytext
 
-```{r}
+```{r set up, include = F}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, error = F)
 library(tidyverse)
 library(tidytext)
 library(plotly)
