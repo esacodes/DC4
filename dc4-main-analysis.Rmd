@@ -5,26 +5,153 @@ date: "3/24/2021"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+#Working with tidytext
+
+```{r}
+library(tidyverse)
+library(tidytext)
+```
+All of this is coming from https://www.tidytextmining.com/tidytext.html
+```{r}
+#The basics of converting text to tidy format
+
+text <- c("Because I could not stop for Death -",
+          "He kindly stopped for me -",
+          "The Carriage held but just Ourselves -",
+          "and Immortality")
+
+#make the text into a tibble (but the problem so far is that the tibble has a line per row, instead of a word per row)
+
+text_df <- tibble(line = 1:4, text = text)
 ```
 
-## R Markdown
+From the guide: "We need to convert this so that it has one-token-per-document-per-row.
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+"A token is a meaningful unit of text, most often a word, that we are interested in using for further analysis, and tokenization is the process of splitting text into tokens."
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r}
+#OMG THIS IS SO EASY THEY LITERALLY JUST HAVE A FUNCTION THAT DOES THIS I LOVE IT
 
-```{r cars}
-summary(cars)
+text_df %>%
+  unnest_tokens(word, text)
+
+#this retains the information about which line the word came from, which is handy. It does this automatically?? awesome. Plus it removes punctuation and converts to lowercase
 ```
 
-## Including Plots
+```{r}
+#Assuming, ofc, that we want to work with Jane Austen -- who wouldn't???
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+library(janeaustenr)
+```
+```{r}
+#What this does is it takes a list of her books (i'm assuming that's from the janeaustenr package) and then takes each book, makes each line in the book a row... what I don't understand is wtf line 52 does, but i think this isn't part of tidytext and instead just part of austen, so let's ignore that for now ig
+original_books <- austen_books() %>%
+  group_by(book) %>%
+  mutate(linenumber = row_number(),
+         chapter = cumsum(str_detect(text, 
+                                     regex("^chapter [\\divxlc]",
+                                           ignore_case = TRUE)))) %>%
+  ungroup()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+#To tidy this original books df
+
+tidy_books <- original_books %>% 
+  unnest_tokens(word, text)
+
+tidy_books
+```
+
+```{r}
+#I LOVE IT WHEN THE PACKAGE JUST HAS EVERYTHING YOU NEED
+#Yeah so they have a way to remove "stop words" i.e. words like "the" "of" etc that are not useful and should leave the analysis
+
+#They have a list of the stop words in a dataset, and then you can anti_join to just get rid of those words in the df
+
+data(stop_words)
+tidy_books <- tidy_books %>% 
+  anti_join(stop_words)
+```
+
+```{r}
+#now let's see if this worked -- basically, use dplyr's count() to find the most common words (this counts the occurrences of each word, and sort=true sorts them so the most common are on top)
+tidy_books %>% 
+  count(word, sort = TRUE)
+
+#We know this worked 1. because it looks like what the example has 2. because if "the" were still in this df then it would be the most common
+```
+
+```{r}
+#THIS IS SO COOL I LOVE THIS
+
+
+library(ggplot2)
+
+tidy_books %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 600) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL, x = "Word Frequency", title = "Most common words in Jane Austen Novels")
+```
+By the way, did you know there was an r package called gutenbergr that just has a bunch of texts???? keep for reference
+
+```{r}
+library(gutenbergr)
+#use the Project Gutenberg ID numbers for each novel 
+
+#adding the bronte sisters' works
+bronte <- gutenberg_download(c(1260, 768, 969, 9182, 767))
+tidy_bronte <- bronte %>%
+  unnest_tokens(word, text) %>%
+  anti_join(stop_words)
+
+#hg wells
+hgwells <- gutenberg_download(c(35, 36, 5230, 159))
+tidy_hgwells <- hgwells %>%
+  unnest_tokens(word, text) %>%
+  anti_join(stop_words)
+```
+```{r}
+#here's the awesome part
+frequency <- bind_rows(mutate(tidy_bronte, author = "Brontë Sisters"),
+                       mutate(tidy_hgwells, author = "H.G. Wells"), 
+                       mutate(tidy_books, author = "Jane Austen")) %>% 
+  mutate(word = str_extract(word, "[a-z']+")) %>%
+  count(author, word) %>%
+  group_by(author) %>%
+  mutate(proportion = n / sum(n)) %>% 
+  select(-n) %>% 
+  spread(author, proportion) %>% 
+  gather(author, proportion, `Brontë Sisters`:`H.G. Wells`)
+
+frequency
+
+```
+
+```{r eval=FALSE}
+library(scales)
+
+# expect a warning about rows with missing values being removed
+frequency_plot <- ggplot(frequency, aes(x = proportion, y = `Jane Austen`, 
+                      color = abs(`Jane Austen` - proportion))) +
+  geom_abline(color = "gray40", lty = 2) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  scale_color_gradient(limits = c(0, 0.001), 
+                       low = "darkslategray4", high = "gray75") +
+  facet_wrap(~author, ncol = 2) +
+  theme(legend.position="none") +
+  labs(y = "Jane Austen", x = NULL)
+```
+
+```{r eval=FALSE}
+library(plotly)
+
+ggplotly(frequency_plot)
+```
+
