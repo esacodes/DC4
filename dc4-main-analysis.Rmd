@@ -69,3 +69,73 @@ nw <- ggraph(routes_tidy, layout = "auto")
 
 nw
 ```
+
+#Working with tidytext
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(RMySQL)
+```
+
+```{r}
+#i looked at https://datacarpentry.org/R-ecology-lesson/05-r-and-databases.html#introduction
+#BUT this is from https://www.datacareer.de/blog/connect-to-postgresql-with-r-a-step-by-step-example/
+
+#You need to have RPostgreSQL and RPostgres installed for this
+
+#con<-dbConnect(RPostgres::Postgres())
+
+library(DBI)
+```
+```{r}
+db <- 'postgres'  #provide the name of your db
+
+host_db <- 'database-dc4.cimcghmqvw06.us-east-2.rds.amazonaws.com'  
+
+db_port <- 5432  # or any other port specified by the DBA
+
+db_user <- 'dc4'
+
+db_password <- 'password'
+
+con <- dbConnect(RPostgres::Postgres(), dbname = db, 
+                 host=host_db, port=db_port, user=db_user, password=db_password)
+#db
+#host_db
+#db_port
+#db_user
+#db_password
+```
+
+```{r}
+# from https://www.datacareer.de/blog/connect-to-postgresql-with-r-a-step-by-step-example/
+
+dbListTables(con)
+##IT WORKS!!!
+```
+
+```{r}
+firewall_0407_short <- read_csv("Firewall-04072012.csv") %>% head(60)
+```
+
+```{r}
+#from https://www.r-bloggers.com/2016/02/using-postgresql-in-r-a-quick-how-to/
+dbWriteTable(con,'trial_0407',firewall_0406_short, row.names=FALSE)
+```
+
+```{r}
+dbListTables(con)
+dbReadTable(con, "trial_0407")
+```
+
+
+
+```{r}
+#I'm taking the first 600,000 rows of the firewall data because these are MASSIVE files and R will crash. I'm thinking once we're sure what we're going to do and have done some exploratory stuff, then we can make R do it with the full rows and be prepared for it to take a while (or alternatively we can use tableau, or think about using a database)
+firewall_0406_short <- read_csv("Firewall-04062012.csv") %>% head(600000)
+firewall_0407_short <- read_csv("Firewall-04072012.csv") %>% head(600000)
+ids_0406 <- read_csv("IDS-0406-updated.csv")
+ids_0407 <- read_csv("IDS-0407.csv")
+```
+
