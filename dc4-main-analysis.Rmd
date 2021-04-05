@@ -12,14 +12,14 @@ output:
     code_folding: hide
 ---
 
+#Working with tidytext
+
 ```{r set up, include = F}
 knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, error = F)
 library(tidyverse)
 library(tidytext)
 library(tidygraph)
 library(ggraph)
-library(plotly)
-library(scales)
 ```
 
 # Firewall 
@@ -28,234 +28,44 @@ library(scales)
 Firewall_04072012 <- readr::read_csv("DC4-data/Firewall/Firewall-04072012.csv")
 ```
 
+Network 
 
 ```{r}
-Firewall_a <- Firewall_04072012 %>% 
-  mutate(hour = substr(`Date/time`,12,14),
-         n = 1,
-         date = substr(`Date/time`,1,2)) 
-DNS_root <- c("198.41.0.4", "128.9.0.107", "192.33.4.12", "128.8.10.90", "192.203.230.10", "192.5.5.241",
-              "192.112.36.4", "128.63.2.53", "192.36.148.17", "192.58.128.30", "193.0.14.129",
-              "198.32.64.12", "202.12.27.33", "172.23.0.10")
-firewall_id_DNS_root <- Firewall_a %>%
-  filter(str_detect(`Destination IP`,DNS_root)|str_detect(`Destination IP`,DNS_root))
+# id_sus <- id_sus %>%
+#   full_join(ext_id)
+# morning sunday: until 2014-06-08 13:16:27	
 
-cisco_ASA <- c( "10.32.2.100", "10.32.2.101", "172.23.0.1")
-firewall_id_cisco <- Firewall_a %>%
-  filter(`Destination IP`=="10.32.0.1"|str_detect(`Source IP`,cisco_ASA)|           str_detect(`Destination IP`,cisco_ASA))
-
-firewall_id_corp <- Firewall_a %>%
-  filter(`Destination IP`==  "172.25.0.1"|`Source IP`==  "172.25.0.1"|`Source IP`==  "10.32.0.100"|`Destination IP`==  "10.32.0.100")
-# 06/Apr/2012 18:06:42	
-
-website <- c("10.32.0.2", "10.32.1.100", "10.32.1.20", "10.32.5.1")
-firewall_id_web <- Firewall_a %>%
-  filter(str_detect(`Destination IP`,website)|str_detect(`Destination IP`,website))
-
-```
-
-# Network 
-
-## General / Sample 10%
-
-```{r}
-set.seed(2021)
-sample_fire <- dplyr::sample_frac(Firewall_04072012, 0.1) 
-netw <- sample_fire %>% select(`Source IP`, `Destination IP`)
+netw <- Firewall_04072012 %>% select(`Source IP`, `Destination IP`)
 #node list
 sources <- netw %>% distinct(`Source IP`) %>% rename( id = `Source IP`) %>% mutate(from = "from")
 destinations <- netw %>% distinct(`Destination IP`) %>% rename(id = `Destination IP`)
-nodes <- full_join(sources, destinations, by = "id") %>% distinct(id,.keep_all=T) #%>% 
-  # mutate(f = ifelse(from=="from", "from", "to")) %>% select(id,f)
+nodes <- full_join(sources, destinations, by = "id") %>% distinct(id,.keep_all=T) %>% 
+  mutate(f = ifelse(from=="from", "from", "to")) %>% select(id,f)
 
 #edge list
 per_route <- netw %>%  
   group_by(`Source IP`, `Destination IP`) %>%
-  summarise(weight = n()) %>% arrange(desc(weight)) %>%
+  summarise(weight = n()) %>% 
   ungroup()
 edges <- per_route %>% 
   left_join(nodes, by = c(`Source IP` = "id"))
 edges <- edges %>% 
   left_join(nodes, by = c(`Destination IP` = "id"))
-edges <- select(edges, from = `Source IP`, to = `Destination IP`, weight) 
-
+edges <- select(edges, from = `Source IP`, to = `Destination IP`, weight)
 ```
 
 ```{r}
 # A tbl_graph consists of two tibbles: an edges tibble and a nodes tibble
 routes_tidy <- tbl_graph(nodes = nodes, edges = edges, directed = TRUE) 
 
-nw <- ggraph(routes_tidy, layout = "graphopt") +
-  geom_edge_link(aes(color = weight, width = weight), alpha = 0.7) +
-  scale_edge_width(range = c(0.2, 2)) +
-  scale_edge_colour_gradient(low = "#b9b0f7",
-                             high = "black",
-                             space = "Lab") +
-  geom_node_point(colour = "#635d5d", alpha = 0.5 )+ #aes(colour = ifelse(f=="from" ,"#0f0fa3","#635d5d")), show.legend = FALSE) +
-  theme_graph() #+
-  # geom_node_text(aes(label = ifelse(f=="from", id, NA)), repel = TRUE)
+nw <- ggraph(routes_tidy, layout = "auto") 
+  # geom_edge_link(aes(color = weight, width = weight), alpha = 0.7) + 
+  # scale_edge_width(range = c(0.2, 2)) +
+  # scale_edge_colour_gradient(low = "#f09c9c",
+  #                            high = "#d60d0d",
+  #                            space = "Lab") +
+  # geom_node_point(aes(colour = ifelse(f=="from" ,"#0f0fa3","#635d5d")), show.legend = FALSE) + theme_graph()+
+  # geom_node_text(aes(label = ifelse(f=="from", id, NA)), repel = TRUE) 
 
 nw
 ```
-
-
-## Cisco
-
-```{r}
-netw <- firewall_id_cisco %>% select(`Source IP`, `Destination IP`)
-#node list
-sources <- netw %>% distinct(`Source IP`) %>% rename( id = `Source IP`) %>% mutate(from = "from")
-destinations <- netw %>% distinct(`Destination IP`) %>% rename(id = `Destination IP`)
-nodes <- full_join(sources, destinations, by = "id") %>% distinct(id,.keep_all=T) #%>% 
-  # mutate(f = ifelse(from=="from", "from", "to")) %>% select(id,f)
-
-#edge list
-per_route <- netw %>%  
-  group_by(`Source IP`, `Destination IP`) %>%
-  summarise(weight = n()) %>% arrange(desc(weight)) %>%
-  ungroup()
-edges <- per_route %>% 
-  left_join(nodes, by = c(`Source IP` = "id"))
-edges <- edges %>% 
-  left_join(nodes, by = c(`Destination IP` = "id"))
-edges <- select(edges, from = `Source IP`, to = `Destination IP`, weight) 
-
-```
-
-```{r}
-# A tbl_graph consists of two tibbles: an edges tibble and a nodes tibble
-routes_tidy1 <- tbl_graph(nodes = nodes, edges = edges, directed = TRUE) 
-
-nw1 <- ggraph(routes_tidy1, layout = "graphopt") +
-  geom_node_point(colour = "#635d5d", alpha = 0.5 )+ #aes(colour = ifelse(f=="from" ,"#0f0fa3","#635d5d")), show.legend = FALSE) +
-  geom_edge_link(aes(color = weight, width = weight), alpha = 0.7) +
-  scale_edge_width(range = c(0.2, 2)) +
-  scale_edge_colour_gradient(low = "#b9b0f7",
-                             high = "black",
-                             space = "Lab") +
-  theme_graph() #+
-  # geom_node_text(aes(label = ifelse(f=="from", id, NA)), repel = TRUE)
-
-nw1
-```
-
-## corporate 
-
-```{r}
-netw <- firewall_id_corp %>% select(`Source IP`, `Destination IP`)
-#node list
-sources <- netw %>% distinct(`Source IP`) %>% rename( id = `Source IP`) %>% mutate(from = "from")
-destinations <- netw %>% distinct(`Destination IP`) %>% rename(id = `Destination IP`)
-nodes <- full_join(sources, destinations, by = "id") %>% distinct(id,.keep_all=T) #%>% 
-  # mutate(f = ifelse(from=="from", "from", "to")) %>% select(id,f)
-
-#edge list
-per_route <- netw %>%  
-  group_by(`Source IP`, `Destination IP`) %>%
-  summarise(weight = n()) %>% arrange(desc(weight)) %>%
-  ungroup()
-edges <- per_route %>% 
-  left_join(nodes, by = c(`Source IP` = "id"))
-edges <- edges %>% 
-  left_join(nodes, by = c(`Destination IP` = "id"))
-edges <- select(edges, from = `Source IP`, to = `Destination IP`, weight) 
-
-```
-
-```{r}
-# A tbl_graph consists of two tibbles: an edges tibble and a nodes tibble
-routes_tidy2 <- tbl_graph(nodes = nodes, edges = edges, directed = TRUE) 
-
-nw2 <- ggraph(routes_tidy2, layout = "graphopt") +
-  geom_node_point(colour = "#635d5d", alpha = 0.5 )+ #aes(colour = ifelse(f=="from" ,"#0f0fa3","#635d5d")), show.legend = FALSE) +
-  geom_edge_link(aes(color = weight, width = weight), alpha = 0.7) +
-  scale_edge_width(range = c(0.2, 2)) +
-  scale_edge_colour_gradient(low = "#b9b0f7",
-                             high = "black",
-                             space = "Lab") +
-  theme_graph() #+
-  # geom_node_text(aes(label = ifelse(f=="from", id, NA)), repel = TRUE)
-
-nw2
-```
-
-# Activity
-
-```{r}
-Firewall_a_06 <- Firewall_a%>% filter(str_detect(`Date/time`, "06/Apr/2012"))%>% 
-  group_by(hour) %>% mutate(count = sum(n)) %>% distinct(hour, .keep_all=T) %>% 
-  select(c(hour, count))
-Firewall_a_07 <- Firewall_a%>% filter(str_detect(`Date/time`, "07/Apr/2012"))%>%
-  group_by(hour) %>% mutate(count = sum(n)) %>% distinct(hour, .keep_all=T)%>% 
-  select(c(hour, count))
-
-
-
-a1 <- ggplot(Firewall_a_06, aes(x = as.integer(hour), y = count)) + geom_line() + theme_classic() +
-  scale_y_continuous(labels = comma, limits = c(0,850000)) + labs(title = "Hourly Activity on April 6") +
-  scale_x_continuous(name="Hour", breaks = c(17:23))
-a2 <- ggplot(Firewall_a_07, aes(x = as.integer(hour), y = count)) + geom_line() + theme_classic() +
-  scale_y_continuous(labels = comma, limits = c(0,850000)) + labs(title = "Hourly Activity on April 7")+
-  scale_x_continuous(name="Hour", breaks = c(0:9))
-
-ggpubr::ggarrange(a1,a2, ncol = 2) #, common.legend = TRUE, legend="bottom")
-  # datetime = as.POSIXct(str_c(date1, time, sep=" "), format="%D/%M/%Y %H:%M:%S"))
-```
-
-**by ID**
-
-```{r}
-a_DNS_6 <- firewall_id_DNS_root %>%
-  filter(str_detect(`Date/time`, "06/Apr/2012"))%>% 
-  group_by(hour) %>% mutate(count = sum(n)) %>% distinct(hour, .keep_all=T) %>% 
-  select(c(hour, count))
-a_DNS_7 <- firewall_id_DNS_root %>%
-  filter(str_detect(`Date/time`, "07/Apr/2012"))%>% 
-  group_by(hour) %>% mutate(count = sum(n)) %>% distinct(hour, .keep_all=T) %>% 
-  select(c(hour, count))
-
-a_cisco_ASA_6 <- firewall_id_cisco %>%
-  filter(str_detect(`Date/time`, "06/Apr/2012"))%>% 
-  group_by(hour) %>% mutate(count = sum(n)) %>% distinct(hour, .keep_all=T) %>% 
-  select(c(hour, count))
-a_cisco_ASA_7 <- firewall_id_cisco %>%
-  filter(str_detect(`Date/time`, "07/Apr/2012"))%>% 
-  group_by(hour) %>% mutate(count = sum(n)) %>% distinct(hour, .keep_all=T) %>% 
-  select(c(hour, count))
-
-a_corporate_6 <- firewall_id_corp %>%
-  filter(str_detect(`Date/time`, "06/Apr/2012"))%>% 
-  group_by(hour) %>% mutate(count = sum(n)) %>% distinct(hour, .keep_all=T) %>% 
-  select(c(hour, count))%>%
-  full_join(a_cisco_ASA_6, by = "hour")%>%
-  full_join(a_DNS_6,  by = "hour") %>% rename(corporate = count.x,
-                                              cisco = count.y, 
-                                              dns = count)
-a_corporate_6[is.na(a_corporate_6)] <- 0
-a_corporate_6 <- a_corporate_6 %>% pivot_longer(cols = c(-hour), values_to="count", names_to = "IP")
-
-a_corporate_7 <- firewall_id_corp %>%
-  filter(str_detect(`Date/time`, "07/Apr/2012"))%>% 
-  group_by(hour) %>% mutate(count = sum(n)) %>% distinct(hour, .keep_all=T) %>% 
-  select(c(hour, count)) %>% 
-  full_join(a_cisco_ASA_7, by = "hour")%>%
-  full_join(a_DNS_7,  by = "hour") %>% rename(corporate = count.x,
-                                              cisco = count.y, 
-                                              dns = count)
-a_corporate_7[is.na(a_corporate_7)] <- 0
-a_corporate_7 <- a_corporate_7 %>% pivot_longer(cols = c(-hour), values_to="count", names_to = "IP")
-
-
-a3 <- ggplot(a_corporate_6, aes(x = as.integer(hour), y = count, color = IP)) + geom_line() +
-  theme_classic() +
-  # scale_y_continuous(labels = comma, limits = c(0,180000)) +
-  labs(title = "Hourly Activity on April 6 by Firewall IPs") +
-  scale_x_continuous(name="Hour", breaks = c(17:23))
-a4 <- ggplot(a_corporate_7, aes(x = as.integer(hour), y = count, color = IP)) + geom_line() +
-  theme_classic() +
-  # scale_y_continuous(labels = comma, limits = c(0,180000)) +
-  labs(title = "Hourly Activity on April 7 by Firewall IPs", y = NULL)+
-  scale_x_continuous(name="Hour", breaks = c(0:9))
-ggpubr::ggarrange(a3,a4, ncol = 2 , common.legend = TRUE, legend="bottom")
-```
-
