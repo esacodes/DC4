@@ -1,0 +1,30 @@
+---
+title: "Data Challenge 4"
+author: "Nage Ngo, Carol Milton, Esa Schenck"
+date: "3/24/2021"
+output: html_document
+---
+
+#Working with tidytext
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(RMySQL)
+```
+
+```{r}
+#from https://datacarpentry.org/R-ecology-lesson/05-r-and-databases.html#introduction
+
+
+
+```
+
+```{r}
+#I'm taking the first 600,000 rows of the firewall data because these are MASSIVE files and R will crash. I'm thinking once we're sure what we're going to do and have done some exploratory stuff, then we can make R do it with the full rows and be prepared for it to take a while (or alternatively we can use tableau, or think about using a database)
+firewall_0406_short <- read_csv("Firewall-04062012.csv") %>% head(600000)
+firewall_0407_short <- read_csv("Firewall-04072012.csv") %>% head(600000)
+ids_0406 <- read_csv("IDS-0406-updated.csv")
+ids_0407 <- read_csv("IDS-0407.csv")
+```
+
